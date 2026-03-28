@@ -29,39 +29,34 @@ class Flatlander:
         self.width, self.height = target.size
         self.target = target
         self.shapes = []
-        self.current = 0
         self.raster_img = Image.new("RGBA", (width, height), bg_color)
-        self.temp_image = self.raster_img.copy()
-        self.current_diff = self.diff()
+        self.current_diff = self.diff(self.raster_img)
 
-    def add_shape(self):
-        shape = random.choice(shape_list)
-        self.shapes.append(
-            apply_shape(
-                shape,
-                self.target,
-                self.temp_image,
-                self.shape_alpha,
-            )
-        )
+    def add_shape(self, trials: int = 4) -> None:
+        best_image = None
+        best_shape = None
+        best_diff = self.current_diff
+        for _ in range(trials):
+            shape_type = random.choice(shape_list)
+            temp_image = self.raster_img.copy()
+            shape = apply_shape(shape_type, self.target, temp_image, self.shape_alpha)
+            diff = self.diff(temp_image)
+            if diff < best_diff:
+                best_diff = diff
+                best_image = temp_image
+                best_shape = shape
+        if best_image is not None:
+            self.raster_img = best_image
+            self.current_diff = best_diff
+            self.shapes.append(best_shape)
 
-    def diff(self, without_alpha: bool = True) -> float:
+    def diff(self, image: Image.Image, without_alpha: bool = True) -> float:
         target_array = np.array(self.target)
-        temp_array = np.array(self.temp_image)
+        temp_array = np.array(image)
         if without_alpha:
             target_array = target_array[:, :, :3]
             temp_array = temp_array[:, :, :3]
         return np.sqrt(np.mean((target_array - temp_array) ** 2))
-
-    def commit(self) -> None:
-        curr_diff = self.diff()
-        if curr_diff < self.current_diff:
-            self.current_diff = curr_diff
-            self.current = len(self.shapes)
-            self.raster_img = self.temp_image.copy()
-        else:
-            self.temp_image = self.raster_img.copy()
-            self.shapes = self.shapes[: self.current]
 
 
 if __name__ == "__main__":
@@ -76,6 +71,13 @@ if __name__ == "__main__":
         type=float,
         default=1.0,
         help="Alpha value for shapes (0.0 to 1.0).",
+    )
+    parser.add_argument(
+        "-t",
+        "--trials",
+        type=int,
+        default=4,
+        help="Number of random shapes to try for each addition.",
     )
     parser.add_argument(
         "-n",
