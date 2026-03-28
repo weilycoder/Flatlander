@@ -87,13 +87,6 @@ if __name__ == "__main__":
         help="Number of shapes to fit.",
     )
     parser.add_argument(
-        "-m",
-        "--num-starts",
-        type=int,
-        default=4,
-        help="Number of random starts for optimization.",
-    )
-    parser.add_argument(
         "-b",
         "--background-color",
         type=str,
@@ -123,12 +116,7 @@ if __name__ == "__main__":
         except ValueError:
             error_exit(f"'{args.background_color}' is not a valid color string.")
 
-    best = Flatlander(img, bg_color)
-    for _ in range(args.num_starts):
-        flatlander = Flatlander(img, bg_color, args.alpha)
-        while flatlander.current < args.num_shapes:
-            flatlander.add_shape()
-            flatlander.commit()
-        if flatlander.current_diff < best.current_diff:
-            best = flatlander
-    best.raster_img.save(args.output_image)
+    flatlander = Flatlander(img, bg_color, args.alpha)
+    while len(flatlander.shapes) < args.num_shapes:
+        flatlander.add_shape(args.trials)
+    flatlander.raster_img.save(args.output_image)
