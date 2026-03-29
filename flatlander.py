@@ -119,4 +119,8 @@ if __name__ == "__main__":
     flatlander = Flatlander(img, bg_color, args.alpha)
     while len(flatlander.shapes) < args.num_shapes:
         flatlander.add_shape(args.trials)
+        rprint(
+            f"Added shape {len(flatlander.shapes)}/{args.num_shapes}, "
+            f"current diff: {flatlander.current_diff:.2f}"
+        )
     flatlander.raster_img.save(args.output_image)
