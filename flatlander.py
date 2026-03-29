@@ -9,7 +9,7 @@ import numpy as np
 from rich import print as rprint
 from PIL import Image, ImageColor, UnidentifiedImageError
 
-from utils import average_color, mode_color
+from utils import average_color, mode_color, RMSE
 from shape_factory import shape_list, apply_shape
 
 
@@ -50,13 +50,8 @@ class Flatlander:
             self.current_diff = best_diff
             self.shapes.append(best_shape)
 
-    def diff(self, image: Image.Image, without_alpha: bool = True) -> float:
-        target_array = np.array(self.target)
-        temp_array = np.array(image)
-        if without_alpha:
-            target_array = target_array[:, :, :3]
-            temp_array = temp_array[:, :, :3]
-        return np.sqrt(np.mean((target_array - temp_array) ** 2))
+    def diff(self, image: Image.Image) -> float:
+        return RMSE(self.target, image)
 
 
 if __name__ == "__main__":

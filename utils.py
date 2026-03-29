@@ -30,3 +30,23 @@ def mode_color(
     mode_color = unique_colors[np.argmax(counts)]
     r, g, b, a = map(int, mode_color)
     return r, g, b, int(a * alpha)
+
+
+def RMSE(
+    target: Image.Image,
+    current: Image.Image,
+    *,
+    mask: Image.Image | None = None,
+    without_alpha: bool = True,
+) -> float:
+    target_array = np.array(target).astype(float)
+    current_array = np.array(current).astype(float)
+    if without_alpha:
+        current_array = current_array[:, :, :3]
+        target_array = target_array[:, :, :3]
+    mask_array = np.array(mask).astype(float) / 255.0 if mask else None
+    if mask_array is None or np.sum(mask_array) <= 0:
+        return np.sqrt(np.mean((current_array - target_array) ** 2))
+    weights = mask_array[..., None]
+    weighted_diff = weights * (current_array - target_array) ** 2
+    return np.sqrt(np.mean(weighted_diff))
