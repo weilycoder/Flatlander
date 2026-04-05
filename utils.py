@@ -15,7 +15,7 @@ def average_color(
     else:
         weights = mask_array[..., None]
         weighted_sum = np.sum(np_image * weights, axis=(0, 1))
-        avg_color = np.round(weighted_sum / np.sum(mask_array))
+        avg_color = np.round(weighted_sum / np.sum(weights))
     r, g, b, a = map(int, avg_color)
     return r, g, b, int(a * alpha)
 
