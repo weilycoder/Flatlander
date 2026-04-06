@@ -16,4 +16,4 @@ def random_circle(width: int, height: int):
     ) -> None:
         draw.circle((x, y), r, fill=color)
 
-    return draw_circle
+    return draw_circle, [{"name": "circle", "cx": x, "cy": y, "r": r}]

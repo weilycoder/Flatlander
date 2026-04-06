@@ -2,9 +2,8 @@ import sys
 import random
 import argparse
 
-from typing import cast
-
-import numpy as np
+from typing import cast, Any
+from svg_export import SVGExporter
 
 from rich import print as rprint
 from PIL import Image, ImageColor, UnidentifiedImageError
@@ -22,7 +21,7 @@ class Flatlander:
     def __init__(
         self,
         target: Image.Image,
-        bg_color: tuple[int, int, int, int] | str,
+        bg_color: tuple[int, int, int, int],
         shape_alpha: float = 1.0,
         shape_list: list[str] | None = None,
     ):
@@ -30,29 +29,49 @@ class Flatlander:
         self.shape_alpha = shape_alpha
         self.width, self.height = target.size
         self.target = target
+        self.bg_color = bg_color
         self.raster_img = Image.new("RGBA", (self.width, self.height), bg_color)
         self.current_diff = self.diff(self.raster_img)
-        self.shape_list = list(shape_drawers.keys()) if shape_list is None else shape_list
+        self.shape_metas: list[dict[str, Any]] = []
+        self.shape_list = (
+            list(shape_drawers.keys()) if shape_list is None else shape_list
+        )
 
     def add_shape(self, trials: int = 4) -> None:
         best_image = None
         best_diff = self.current_diff
+        best_meta: list[dict[str, Any]] = []
         for _ in range(trials):
             shape_type = random.choice(self.shape_list)
-            curr_shape_drawer = shape_drawers[shape_type](self.width, self.height)
+            shape_drawer, cmds = shape_drawers[shape_type](self.width, self.height)
             temp_image = self.raster_img.copy()
-            apply_shape(curr_shape_drawer, self.target, temp_image, self.shape_alpha)
+            color = apply_shape(shape_drawer, self.target, temp_image, self.shape_alpha)
             diff = self.diff(temp_image)
             if diff < best_diff:
                 best_diff = diff
                 best_image = temp_image
+                best_meta = [{"command": cmd, "color": color} for cmd in cmds]
         if best_image is not None:
             self.shapes += 1
             self.raster_img = best_image
             self.current_diff = best_diff
+            self.shape_metas.extend(best_meta)
 
     def diff(self, image: Image.Image) -> float:
         return RMSE(self.target, image)
+
+    def save_svg(self, path: str) -> None:
+        svg_exporter = SVGExporter(self.width, self.height, self.bg_color)
+        svg_exporter.save_svg(self.shape_metas, path)
+
+    def save_png(self, path: str) -> None:
+        self.raster_img.save(path)
+
+    def save(self, path: str) -> None:
+        if path.lower().endswith(".svg"):
+            self.save_svg(path)
+        else:
+            self.save_png(path)
 
 
 if __name__ == "__main__":
@@ -99,6 +118,9 @@ if __name__ == "__main__":
     except UnidentifiedImageError:
         error_exit(f"The file '{args.input_image}' is not a valid image file.")
 
+    bg_color = cast(
+        tuple[int, int, int, int], (0, 0, 0, 255)
+    )  # default to opaque black
     if args.background_color == "average":
         bg_color = average_color(img)
     elif args.background_color == "mode":
@@ -119,4 +141,4 @@ if __name__ == "__main__":
             f"Added shape {flatlander.shapes}/{args.num_shapes}, "
             f"current diff: {flatlander.current_diff:.2f}"
         )
-    flatlander.raster_img.save(args.output_image)
+    flatlander.save(args.output_image)

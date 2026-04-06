@@ -1,6 +1,6 @@
 import os
 
-from typing import Protocol
+from typing import Any, Protocol
 
 from PIL import Image, ImageDraw
 
@@ -24,7 +24,7 @@ class _ShapeFactory(Protocol):
         self,
         width: int,
         height: int,
-    ) -> _ShapeDrawer: ...
+    ) -> tuple[_ShapeDrawer, list[dict[str, Any]]]: ...
 
 
 shape_drawers: dict[str, _ShapeFactory] = {}
@@ -54,3 +54,5 @@ def apply_shape(
     overlay_draw = ImageDraw.ImageDraw(overlay)
     shape_drawer(overlay_draw, color=color)
     canvas.alpha_composite(overlay)
+
+    return color
