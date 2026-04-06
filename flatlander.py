@@ -10,7 +10,7 @@ from rich import print as rprint
 from PIL import Image, ImageColor, UnidentifiedImageError
 
 from utils import average_color, mode_color, RMSE
-from shape_factory import shape_list, apply_shape
+from shapes import shape_drawers, apply_shape
 
 
 def error_exit(message: str):
@@ -24,31 +24,32 @@ class Flatlander:
         target: Image.Image,
         bg_color: tuple[int, int, int, int] | str,
         shape_alpha: float = 1.0,
+        shape_list: list[str] | None = None,
     ):
+        self.shapes = 0
         self.shape_alpha = shape_alpha
         self.width, self.height = target.size
         self.target = target
-        self.shapes = []
-        self.raster_img = Image.new("RGBA", (width, height), bg_color)
+        self.raster_img = Image.new("RGBA", (self.width, self.height), bg_color)
         self.current_diff = self.diff(self.raster_img)
+        self.shape_list = list(shape_drawers.keys()) if shape_list is None else shape_list
 
     def add_shape(self, trials: int = 4) -> None:
         best_image = None
-        best_shape = None
         best_diff = self.current_diff
         for _ in range(trials):
-            shape_type = random.choice(shape_list)
+            shape_type = random.choice(self.shape_list)
+            curr_shape_drawer = shape_drawers[shape_type](self.width, self.height)
             temp_image = self.raster_img.copy()
-            shape = apply_shape(shape_type, self.target, temp_image, self.shape_alpha)
+            apply_shape(curr_shape_drawer, self.target, temp_image, self.shape_alpha)
             diff = self.diff(temp_image)
             if diff < best_diff:
                 best_diff = diff
                 best_image = temp_image
-                best_shape = shape
         if best_image is not None:
+            self.shapes += 1
             self.raster_img = best_image
             self.current_diff = best_diff
-            self.shapes.append(best_shape)
 
     def diff(self, image: Image.Image) -> float:
         return RMSE(self.target, image)
@@ -71,7 +72,7 @@ if __name__ == "__main__":
         "-t",
         "--trials",
         type=int,
-        default=4,
+        default=16,
         help="Number of random shapes to try for each addition.",
     )
     parser.add_argument(
@@ -112,10 +113,10 @@ if __name__ == "__main__":
             error_exit(f"'{args.background_color}' is not a valid color string.")
 
     flatlander = Flatlander(img, bg_color, args.alpha)
-    while len(flatlander.shapes) < args.num_shapes:
+    while flatlander.shapes < args.num_shapes:
         flatlander.add_shape(args.trials)
         rprint(
-            f"Added shape {len(flatlander.shapes)}/{args.num_shapes}, "
+            f"Added shape {flatlander.shapes}/{args.num_shapes}, "
             f"current diff: {flatlander.current_diff:.2f}"
         )
     flatlander.raster_img.save(args.output_image)
