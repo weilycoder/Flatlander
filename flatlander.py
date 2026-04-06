@@ -108,7 +108,14 @@ if __name__ == "__main__":
         default="average",
         help="Background color (e.g., '#RRGGBBAA') or 'average' or 'mode'.",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Random seed for reproducibility.",
+    )
     args = parser.parse_args()
+    random.seed(args.seed)
 
     try:
         img = Image.open(args.input_image).convert("RGBA")
