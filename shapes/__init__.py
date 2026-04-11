@@ -1,12 +1,12 @@
-import os
+import pkgutil
+import importlib
+import logging
 
-from typing import Any, Protocol
+from typing import cast, Any, Protocol, Sequence
 
-from PIL import Image, ImageDraw
+from PIL import ImageDraw
 
-from utils import average_color
-
-__all__ = ["shape_drawers", "apply_shape"]
+__all__ = ["ShapeRegistry", "registry"]
 
 _Ink = float | tuple[int, ...] | str
 
@@ -27,32 +27,42 @@ class _ShapeFactory(Protocol):
     ) -> tuple[_ShapeDrawer, list[dict[str, Any]]]: ...
 
 
-shape_drawers: dict[str, _ShapeFactory] = {}
+class ShapeRegistry:
+    """Encapsulates discovery and access to shape factory functions.
 
-for filename in os.listdir(os.path.dirname(__file__)):
-    if filename.endswith(".py") and not filename.startswith("__"):
-        module_name = filename[:-3]
-        module = __import__(f"shapes.{module_name}", fromlist=[module_name])
-        for attr in dir(module):
-            if attr.startswith("random_"):
-                globals()[attr] = getattr(module, attr)
-                shape_drawers[attr[7:]] = getattr(module, attr)
+    Uses pkgutil to discover modules under the shapes package and imports
+    only modules that define callables starting with `random_`.
+    """
+
+    def __init__(self, package_name: str, package_path: Sequence[str]) -> None:
+        self.__package_name = package_name
+        # store as list to keep compatibility with pkgutil.iter_modules
+        self.__package_path = list(package_path)
+        self.__logger = logging.getLogger(f"{__name__}.registry")
+        self.__shape_drawers: dict[str, _ShapeFactory] = {}
+
+    def __discover(self) -> None:
+        for _finder, name, ispkg in pkgutil.iter_modules(self.__package_path):
+            if name.startswith("_"):
+                continue
+            try:
+                mod = importlib.import_module(f"{self.__package_name}.{name}")
+            except Exception as exc:  # pragma: no cover - best-effort import
+                self.__logger.warning("Failed to import shape module %s: %s", name, exc)
+                continue
+            for attr in dir(mod):
+                if attr.startswith("random_"):
+                    func = getattr(mod, attr)
+                    if callable(func):
+                        # register under the short name (after 'random_')
+                        self.__shape_drawers[attr[7:]] = cast(_ShapeFactory, func)
+
+    @property
+    def shape_drawers(self) -> dict[str, _ShapeFactory]:
+        if not self.__shape_drawers:
+            self.__discover()
+        return self.__shape_drawers
 
 
-def apply_shape(
-    shape_drawer: _ShapeDrawer,
-    target: Image.Image,
-    canvas: Image.Image,
-    alpha: float = 1.0,
-):
-    mask = Image.new("L", target.size, 0)
-    mask_draw = ImageDraw.ImageDraw(mask)
-    shape_drawer(mask_draw, color=255)
-    color = average_color(target, alpha, mask)
-
-    overlay = Image.new("RGBA", target.size, (0, 0, 0, 0))
-    overlay_draw = ImageDraw.ImageDraw(overlay)
-    shape_drawer(overlay_draw, color=color)
-    canvas.alpha_composite(overlay)
-
-    return color
+# default registry for the package
+registry = ShapeRegistry(__name__, __path__)

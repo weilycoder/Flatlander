@@ -6,10 +6,10 @@ from typing import cast, Any
 from svg_export import SVGExporter
 
 from rich import print as rprint
-from PIL import Image, ImageColor, UnidentifiedImageError
+from PIL import Image, ImageColor, ImageDraw, UnidentifiedImageError
 
 from utils import average_color, mode_color, RMSE
-from shapes import shape_drawers, apply_shape
+from shapes import registry, _ShapeDrawer
 
 
 def error_exit(message: str):
@@ -34,8 +34,27 @@ class Flatlander:
         self.current_diff = self.diff(self.raster_img)
         self.shape_metas: list[dict[str, Any]] = []
         self.shape_list = (
-            list(shape_drawers.keys()) if shape_list is None else shape_list
+            list(registry.shape_drawers.keys()) if shape_list is None else shape_list
         )
+
+    @staticmethod
+    def apply_shape(
+        shape_drawer: _ShapeDrawer,
+        target: Image.Image,
+        canvas: Image.Image,
+        alpha: float = 1.0,
+    ):
+        mask = Image.new("L", target.size, 0)
+        mask_draw = ImageDraw.ImageDraw(mask)
+        shape_drawer(mask_draw, color=255)
+        color = average_color(target, alpha, mask)
+
+        overlay = Image.new("RGBA", target.size, (0, 0, 0, 0))
+        overlay_draw = ImageDraw.ImageDraw(overlay)
+        shape_drawer(overlay_draw, color=color)
+        canvas.alpha_composite(overlay)
+
+        return color
 
     def add_shape(self, trials: int = 4) -> None:
         best_image = None
@@ -43,9 +62,13 @@ class Flatlander:
         best_meta: list[dict[str, Any]] = []
         for _ in range(trials):
             shape_type = random.choice(self.shape_list)
-            shape_drawer, cmds = shape_drawers[shape_type](self.width, self.height)
+            shape_drawer, cmds = registry.shape_drawers[shape_type](
+                self.width, self.height
+            )
             temp_image = self.raster_img.copy()
-            color = apply_shape(shape_drawer, self.target, temp_image, self.shape_alpha)
+            color = self.apply_shape(
+                shape_drawer, self.target, temp_image, self.shape_alpha
+            )
             diff = self.diff(temp_image)
             if diff < best_diff:
                 best_diff = diff
