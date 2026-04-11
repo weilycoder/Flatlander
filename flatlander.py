@@ -97,7 +97,7 @@ class Flatlander:
             self.save_png(path)
 
 
-if __name__ == "__main__":
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Fit complex images with simple geometric shapes."
     )
@@ -137,7 +137,7 @@ if __name__ == "__main__":
         default=None,
         help="Random seed for reproducibility.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     random.seed(args.seed)
 
     try:
@@ -148,9 +148,7 @@ if __name__ == "__main__":
     except UnidentifiedImageError:
         error_exit(f"The file '{args.input_image}' is not a valid image file.")
 
-    bg_color = cast(
-        tuple[int, int, int, int], (0, 0, 0, 255)
-    )  # default to opaque black
+    bg_color = cast(tuple[int, int, int, int], (0, 0, 0, 255))
     if args.background_color == "average":
         bg_color = average_color(img)
     elif args.background_color == "mode":
@@ -172,3 +170,7 @@ if __name__ == "__main__":
             f"current diff: {flatlander.current_diff:.2f}"
         )
     flatlander.save(args.output_image)
+
+
+if __name__ == "__main__":
+    main()
