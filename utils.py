@@ -49,4 +49,6 @@ def RMSE(
         return np.sqrt(np.mean((current_array - target_array) ** 2))
     weights = mask_array[..., None]
     weighted_diff = weights * (current_array - target_array) ** 2
-    return np.sqrt(np.mean(weighted_diff))
+    channels = current_array.shape[2] if current_array.ndim == 3 else 1
+    weight_sum = np.sum(mask_array)
+    return np.sqrt(np.sum(weighted_diff) / (weight_sum * channels))
